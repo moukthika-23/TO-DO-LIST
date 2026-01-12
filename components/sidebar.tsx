@@ -1,15 +1,20 @@
 "use client"
 
-import type React from "react"
-
-import { LayoutDashboard, AlertCircle, CheckSquare, List, Settings, HelpCircle, LogOut, Camera } from "lucide-react"
+import {
+  LayoutDashboard,
+  AlertCircle,
+  CheckSquare,
+  List,
+  Settings,
+  HelpCircle,
+  LogOut,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAppStore } from "@/lib/store"
-import { handleImageUpload } from "@/lib/image-utils"
-import { useRef } from "react"
+import { supabase } from "@/lib/supabaseClient"
+import { useEffect, useState } from "react"
 
 const navigationItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -20,51 +25,67 @@ const navigationItems = [
   { name: "Help", href: "/help", icon: HelpCircle },
 ]
 
+type UserInfo = {
+  name: string
+  email: string
+  avatar: string
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const user = useAppStore((state) => state.user)
-  const logout = useAppStore((state) => state.logout)
-  const updateUserProfile = useAppStore((state) => state.updateUserProfile)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleLogout = () => {
-    logout()
+  const [user, setUser] = useState<UserInfo | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/sign-in")
+        return
+      }
+
+      const meta = data.user.user_metadata || {}
+
+      setUser({
+        name:
+          meta.full_name ||
+          meta.name ||
+          data.user.email?.split("@")[0] ||
+          "User",
+        email: data.user.email || "",
+        avatar: meta.avatar_url || meta.picture || "",
+      })
+    })
+  }, [router])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     router.push("/sign-in")
   }
 
-  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const base64Image = await handleImageUpload(event)
-    if (base64Image) {
-      updateUserProfile({ avatar: base64Image })
-    }
+  // 🔁 While loading user
+  if (!user) {
+    return (
+      <div className="flex h-screen w-[280px] items-center justify-center bg-primary text-white">
+        Loading...
+      </div>
+    )
   }
 
   return (
     <div className="flex h-screen w-[280px] flex-col bg-primary text-primary-foreground">
-      {/* User Profile Section */}
+      {/* User Profile */}
       <div className="flex flex-col items-center gap-3 border-b border-primary-foreground/20 p-6">
-        <div className="relative group">
-          <Avatar className="h-24 w-24">
-            <AvatarImage src={user?.avatar || "/placeholder.svg?height=96&width=96"} alt={user?.firstName || "User"} />
-            <AvatarFallback className="bg-primary-foreground text-primary text-2xl">
-              {user?.firstName?.[0] || "U"}
-              {user?.lastName?.[0] || ""}
-            </AvatarFallback>
-          </Avatar>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Camera className="h-6 w-6 text-white" />
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-        </div>
+        <Avatar className="h-24 w-24">
+          <AvatarImage src={user.avatar || ""} alt={user.name} />
+          <AvatarFallback className="bg-primary-foreground text-primary text-2xl">
+            {user.name?.[0] || "U"}
+          </AvatarFallback>
+        </Avatar>
+
         <div className="text-center">
-          <h2 className="font-semibold text-lg">
-            {user?.firstName || "User"} {user?.lastName || ""}
-          </h2>
-          <p className="text-sm text-primary-foreground/80">{user?.email || "user@example.com"}</p>
+          <h2 className="font-semibold text-lg">{user.name}</h2>
+          <p className="text-sm text-primary-foreground/80">{user.email}</p>
         </div>
       </div>
 
@@ -92,7 +113,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout Button */}
+      {/* Logout */}
       <div className="p-4">
         <button
           onClick={handleLogout}

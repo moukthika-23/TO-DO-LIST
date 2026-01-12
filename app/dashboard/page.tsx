@@ -1,7 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Users } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabaseClient"
+import { Plus } from "lucide-react"
+
 import { Sidebar } from "@/components/sidebar"
 import { AppHeader } from "@/components/app-header"
 import { TaskCard } from "@/components/task-card"
@@ -9,322 +12,208 @@ import { CompletedTaskCard } from "@/components/completed-task-card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AddTaskDialog, EditTaskDialog } from "@/components/dialog-components"
-import { useAppStore } from "@/lib/store"
-import type { Task } from "@/lib/store"
+
+export interface Task {
+  id: string
+  title: string
+  description: string
+  priority: "Extreme" | "Moderate" | "Low"
+  status: "Not Started" | "In Progress" | "Completed"
+  date: string
+  image?: string
+  created_at: string
+  user_id: string
+}
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [search, setSearch] = useState("")
   const [showAddTask, setShowAddTask] = useState(false)
   const [showEditTask, setShowEditTask] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const { tasks, user, deleteTask, updateTask } = useAppStore()
 
-  const pendingTasks = tasks.filter((t) => t.status !== "Completed")
-  const completedTasks = tasks.filter((t) => t.status === "Completed")
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        router.push("/sign-in")
+        return
+      }
 
-  const totalTasks = tasks.length || 1
-  const completedPercentage = Math.round((completedTasks.length / totalTasks) * 100)
-  const inProgressPercentage = Math.round((tasks.filter((t) => t.status === "In Progress").length / totalTasks) * 100)
-  const notStartedPercentage = Math.round((tasks.filter((t) => t.status === "Not Started").length / totalTasks) * 100)
+      setUser(data.user)
+      await loadTasks()
+      setLoading(false)
+    }
+
+    init()
+  }, [])
+
+  const loadTasks = async () => {
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) return
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Load tasks error:", error)
+      return
+    }
+
+    setTasks((data || []) as Task[])
+  }
+
+  const deleteTask = async (id: string) => {
+    await supabase.from("tasks").delete().eq("id", id)
+    loadTasks()
+  }
+
+  const markCompleted = async (id: string) => {
+    await supabase.from("tasks").update({ status: "Completed" }).eq("id", id)
+    loadTasks()
+  }
 
   const handleEdit = (task: Task) => {
     setEditingTask(task)
     setShowEditTask(true)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this task?")) {
-      deleteTask(id)
-    }
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this task?")) return
+    await deleteTask(id)
   }
 
-  const handleFinish = (id: string) => {
-    updateTask(id, { status: "Completed" })
+  const handleFinish = async (id: string) => {
+    await markCompleted(id)
   }
+
+const filteredTasks = tasks.filter(
+  (t) =>
+    t.title.toLowerCase().includes(search.toLowerCase()) ||
+    t.description?.toLowerCase().includes(search.toLowerCase())
+)
+
+const pending = filteredTasks.filter((t) => t.status !== "Completed")
+const completed = filteredTasks.filter((t) => t.status === "Completed")
+const inProgress = filteredTasks.filter((t) => t.status === "In Progress")
+const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
+
+  const total = tasks.length || 1
+
+  if (loading) return <div className="p-10 text-center">Loading...</div>
+
+  const fullName = user?.user_metadata?.full_name || "User"
+  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ""
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AppHeader />
+      <div className="flex-1 flex flex-col">
+        <AppHeader
+  search={search}
+  setSearch={setSearch}
+  onBellClick={() => alert("🔔 No notifications yet")}
+  onCalendarClick={() => alert("📅 Calendar feature coming soon")}
+/>
 
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          {/* Welcome Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Welcome back, {user?.firstName || "User"} <span className="inline-block">👋</span>
-            </h2>
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Avatar key={i} className="border-2 border-white h-8 w-8 sm:h-10 sm:w-10">
-                    <AvatarImage src={`/generic-placeholder-graphic.png?height=40&width=40`} />
-                    <AvatarFallback>U{i}</AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-              <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Invite</span>
-              </Button>
-            </div>
+
+        <main className="flex-1 p-6 space-y-6">
+          {/* HEADER */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-3xl font-bold">Welcome, {fullName} 👋</h2>
+            <Avatar>
+              <AvatarImage src={avatarUrl} />
+              <AvatarFallback>{fullName[0]}</AvatarFallback>
+            </Avatar>
           </div>
 
-          <div className="grid lg:grid-cols-[1fr,400px] gap-4 sm:gap-6">
-            {/* Left Column - Tasks */}
-            <div className="space-y-4 sm:space-y-6">
-              {/* To-Do Section */}
-              <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-semibold flex items-center gap-2 mb-1">
-                      <span className="text-primary">📋</span>
-                      To-Do
-                    </h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {new Date().toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: "long",
-                      })}{" "}
-                      • Today
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => setShowAddTask(true)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-primary hover:text-primary w-full sm:w-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add task
+          <div className="grid lg:grid-cols-[1fr,400px] gap-6">
+            {/* LEFT */}
+            <div className="space-y-6">
+              <div className="border rounded-xl p-4">
+                <div className="flex justify-between mb-4">
+                  <h3 className="text-xl font-semibold">To Do</h3>
+                  <Button onClick={() => setShowAddTask(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Task
                   </Button>
                 </div>
 
-                <div className="space-y-3 sm:space-y-4">
-                  {pendingTasks.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No pending tasks. Click "Add task" to create one!
-                    </p>
-                  ) : (
-                    pendingTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        {...task}
-                        createdDate={task.date}
-                        onEdit={() => handleEdit(task)}
-                        onDelete={() => handleDelete(task.id)}
-                        onFinish={() => handleFinish(task.id)}
-                      />
-                    ))
-                  )}
-                </div>
+                {pending.length === 0 && (
+                  <p className="text-muted-foreground text-center py-6">
+                    No tasks yet. Click "Add Task".
+                  </p>
+                )}
+
+                {pending.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    title={task.title}
+                    description={task.description || ""}
+                    priority={task.priority}
+                    status={task.status}
+                    image={task.image}
+                    createdDate={task.date}
+                    onEdit={() => handleEdit(task)}
+                    onDelete={() => handleDelete(task.id)}
+                    onFinish={() => handleFinish(task.id)}
+                  />
+                ))}
               </div>
 
-              {/* Completed Task Section */}
-              {completedTasks.length > 0 && (
-                <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
-                  <h3 className="text-lg sm:text-xl font-semibold flex items-center gap-2 mb-4">
-                    <span className="text-green-600">✓</span>
-                    Completed Task
-                  </h3>
-
-                  <div className="space-y-3 sm:space-y-4">
-                    {completedTasks.map((task) => (
-                      <CompletedTaskCard
-                        key={task.id}
-                        title={task.title}
-                        description={task.description}
-                        image={task.image || "/placeholder.svg"}
-                        completedDate={`Completed on ${task.date}`}
-                      />
-                    ))}
-                  </div>
+              {completed.length > 0 && (
+                <div className="border rounded-xl p-4">
+                  <h3 className="text-xl font-semibold mb-4">Completed</h3>
+                  {completed.map((task) => (
+                    <CompletedTaskCard
+                      key={task.id}
+                      title={task.title}
+                      description={task.description}
+                      image={task.image || "/placeholder.svg"}
+                      completedDate={task.date}
+                    />
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Right Column - Task Status */}
-            <div className="space-y-4 sm:space-y-6">
-              <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
-                <h3 className="text-lg sm:text-xl font-semibold flex items-center gap-2 mb-6">
-                  <span className="text-blue-600">📊</span>
-                  Task Status
-                </h3>
-
-                <div className="space-y-6">
-                  {/* Completed */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center">
-                      <div className="relative h-28 w-28 sm:h-32 sm:w-32">
-                        <svg className="transform -rotate-90 h-28 w-28 sm:h-32 sm:w-32">
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#e5e7eb"
-                            strokeWidth="10"
-                            fill="none"
-                            className="text-gray-200 sm:hidden"
-                          />
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#22c55e"
-                            strokeWidth="10"
-                            fill="none"
-                            strokeDasharray={`${(completedPercentage / 100) * 314.16} 314.16`}
-                            className="text-green-500 sm:hidden"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#e5e7eb"
-                            strokeWidth="12"
-                            fill="none"
-                            className="text-gray-200 hidden sm:block"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#22c55e"
-                            strokeWidth="12"
-                            fill="none"
-                            strokeDasharray={`${(completedPercentage / 100) * 351.86} 351.86`}
-                            className="text-green-500 hidden sm:block"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xl sm:text-2xl font-bold">{completedPercentage}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-center font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
-                      <span className="h-3 w-3 rounded-full bg-green-500" />
-                      Completed
-                    </p>
-                  </div>
-
-                  {/* In Progress */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center">
-                      <div className="relative h-28 w-28 sm:h-32 sm:w-32">
-                        <svg className="transform -rotate-90 h-28 w-28 sm:h-32 sm:w-32">
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#e5e7eb"
-                            strokeWidth="10"
-                            fill="none"
-                            className="text-gray-200 sm:hidden"
-                          />
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#3b82f6"
-                            strokeWidth="10"
-                            fill="none"
-                            strokeDasharray={`${(inProgressPercentage / 100) * 314.16} 314.16`}
-                            className="text-blue-500 sm:hidden"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#e5e7eb"
-                            strokeWidth="12"
-                            fill="none"
-                            className="text-gray-200 hidden sm:block"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#3b82f6"
-                            strokeWidth="12"
-                            fill="none"
-                            strokeDasharray={`${(inProgressPercentage / 100) * 351.86} 351.86`}
-                            className="text-blue-500 hidden sm:block"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xl sm:text-2xl font-bold">{inProgressPercentage}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-center font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
-                      <span className="h-3 w-3 rounded-full bg-blue-500" />
-                      In Progress
-                    </p>
-                  </div>
-
-                  {/* Not Started */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center">
-                      <div className="relative h-28 w-28 sm:h-32 sm:w-32">
-                        <svg className="transform -rotate-90 h-28 w-28 sm:h-32 sm:w-32">
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#e5e7eb"
-                            strokeWidth="10"
-                            fill="none"
-                            className="text-gray-200 sm:hidden"
-                          />
-                          <circle
-                            cx="56"
-                            cy="56"
-                            r="50"
-                            stroke="#ef4444"
-                            strokeWidth="10"
-                            fill="none"
-                            strokeDasharray={`${(notStartedPercentage / 100) * 314.16} 314.16`}
-                            className="text-red-500 sm:hidden"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#e5e7eb"
-                            strokeWidth="12"
-                            fill="none"
-                            className="text-gray-200 hidden sm:block"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="#ef4444"
-                            strokeWidth="12"
-                            fill="none"
-                            strokeDasharray={`${(notStartedPercentage / 100) * 351.86} 351.86`}
-                            className="text-red-500 hidden sm:block"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xl sm:text-2xl font-bold">{notStartedPercentage}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-center font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
-                      <span className="h-3 w-3 rounded-full bg-red-500" />
-                      Not Started
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {/* RIGHT */}
+            <div className="border rounded-xl p-6 space-y-6 text-center">
+              <h3 className="text-xl font-semibold">Task Stats</h3>
+              <div>Completed: {Math.round((completed.length / total) * 100)}%</div>
+              <div>In Progress: {Math.round((inProgress.length / total) * 100)}%</div>
+              <div>Not Started: {Math.round((notStarted.length / total) * 100)}%</div>
             </div>
           </div>
         </main>
       </div>
 
-      <AddTaskDialog open={showAddTask} onOpenChange={setShowAddTask} />
-      {editingTask && <EditTaskDialog open={showEditTask} onOpenChange={setShowEditTask} task={editingTask} />}
+      <AddTaskDialog
+        open={showAddTask}
+        onSuccess={loadTasks}
+        onOpenChange={(v) => {
+          setShowAddTask(v)
+          loadTasks()
+        }}
+      />
+
+      {editingTask && (
+        <EditTaskDialog
+          open={showEditTask}
+          onSuccess={loadTasks}
+          onOpenChange={(v) => {
+            setShowEditTask(v)
+            loadTasks()
+          }}
+          task={editingTask}
+        />
+      )}
     </div>
   )
 }

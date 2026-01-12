@@ -1,39 +1,91 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { Trash2 } from "lucide-react"
+
+import { supabase } from "@/lib/supabaseClient"
 import { Sidebar } from "@/components/sidebar"
 import { AppHeader } from "@/components/app-header"
 import { TaskCard } from "@/components/task-card"
 import { Button } from "@/components/ui/button"
-import { Trash2, Edit } from "lucide-react"
-import Image from "next/image"
-import { useAppStore, type Task } from "@/lib/store"
-import { EditTaskDialog } from "@/components/dialog-components"
+
+// ✅ Task type
+interface Task {
+  id: string
+  title: string
+  description: string
+  priority: "Extreme" | "Moderate" | "Low"
+  status: "Not Started" | "In Progress" | "Completed"
+  date: string
+  image?: string
+  created_at: string
+  user_id: string
+}
 
 export default function MyTaskPage() {
   const router = useRouter()
-  const { tasks, deleteTask, updateTask } = useAppStore()
-  const [selectedTask, setSelectedTask] = useState<Task | null>(tasks[0] || null)
-  const [showEditTask, setShowEditTask] = useState(false)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleEdit = (task: Task) => {
-    setSelectedTask(task)
-    setShowEditTask(true)
-  }
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this task?")) {
-      deleteTask(id)
-      if (selectedTask?.id === id) {
-        setSelectedTask(tasks[0] || null)
+  useEffect(() => {
+    const init = async () => {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) {
+        router.push("/sign-in")
+        return
       }
+
+      await loadTasks(auth.user.id)
+      setLoading(false)
+    }
+
+    init()
+  }, [])
+
+  const loadTasks = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Load tasks error:", error)
+      return
+    }
+
+    const list = (data || []) as Task[]
+    setTasks(list)
+
+    if (list.length > 0) {
+      setSelectedTask(list[0])
     }
   }
 
-  const handleFinish = (id: string) => {
-    updateTask(id, { status: "Completed" })
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this task?")) return
+
+    await supabase.from("tasks").delete().eq("id", id)
+
+    const { data: auth } = await supabase.auth.getUser()
+    if (auth.user) {
+      await loadTasks(auth.user.id)
+    }
   }
+
+  const handleFinish = async (id: string) => {
+    await supabase.from("tasks").update({ status: "Completed" }).eq("id", id)
+
+    const { data: auth } = await supabase.auth.getUser()
+    if (auth.user) {
+      await loadTasks(auth.user.id)
+    }
+  }
+
+  if (loading) return <div className="p-10 text-center">Loading...</div>
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -44,143 +96,97 @@ export default function MyTaskPage() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="grid lg:grid-cols-[1fr,500px] min-h-full">
-            {/* Left Side - Task List */}
-            <div className="p-4 sm:p-6 lg:p-8 border-r overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold">My Tasks</h2>
-                <button onClick={() => router.push("/dashboard")} className="text-sm underline hover:no-underline">
+
+            {/* LEFT LIST */}
+            <div className="p-6 border-r overflow-y-auto">
+              <div className="flex justify-between mb-6">
+                <h2 className="text-2xl font-bold">My Tasks</h2>
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="text-sm underline"
+                >
                   Go Back
                 </button>
               </div>
 
-              <div className="space-y-3 sm:space-y-4">
-                {tasks.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No tasks available. Go to Dashboard to add tasks!
-                  </p>
-                ) : (
-                  tasks.map((task) => (
+              {tasks.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No tasks available. Go to Dashboard to add tasks!
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {tasks.map((task) => (
                     <div
                       key={task.id}
-                      className={`cursor-pointer transition-all ${
-                        selectedTask?.id === task.id ? "ring-2 ring-primary rounded-2xl" : ""
+                      className={`cursor-pointer ${
+                        selectedTask?.id === task.id ? "ring-2 ring-primary rounded-xl" : ""
                       }`}
                       onClick={() => setSelectedTask(task)}
                     >
                       <TaskCard
-                        {...task}
+                        title={task.title}
+                        description={task.description || ""}
+                        priority={task.priority}
+                        status={task.status}
+                        image={task.image}
                         createdDate={task.date}
-                        onEdit={() => handleEdit(task)}
                         onDelete={() => handleDelete(task.id)}
                         onFinish={() => handleFinish(task.id)}
                       />
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Right Side - Task Detail */}
-            {selectedTask && (
-              <div className="p-4 sm:p-6 lg:p-8 bg-muted/20 overflow-y-auto">
-                <div className="space-y-6">
-                  <div className="relative rounded-2xl overflow-hidden bg-white p-4 sm:p-6">
-                    {selectedTask.image && (
-                      <Image
-                        src={selectedTask.image || "/placeholder.svg"}
-                        alt={selectedTask.title}
-                        width={400}
-                        height={250}
-                        className="w-full rounded-xl object-cover mb-4"
-                      />
-                    )}
+            {/* RIGHT DETAILS */}
+            {selectedTask ? (
+              <div className="p-6 bg-muted/20 overflow-y-auto">
+                <div className="bg-white rounded-xl p-6">
 
-                    <h2 className="text-xl sm:text-2xl font-bold mb-3">{selectedTask.title}</h2>
+                  {selectedTask.image && (
+                    <Image
+                      src={selectedTask.image}
+                      alt={selectedTask.title}
+                      width={400}
+                      height={250}
+                      className="w-full rounded-lg mb-4"
+                    />
+                  )}
 
-                    <div className="space-y-2 text-xs sm:text-sm mb-4">
-                      <p>
-                        Priority:{" "}
-                        <span
-                          className={
-                            selectedTask.priority === "Extreme"
-                              ? "text-red-600 font-medium"
-                              : selectedTask.priority === "Moderate"
-                                ? "text-blue-600 font-medium"
-                                : "text-green-600 font-medium"
-                          }
-                        >
-                          {selectedTask.priority}
-                        </span>
-                      </p>
-                      <p>
-                        Status:{" "}
-                        <span
-                          className={
-                            selectedTask.status === "Not Started"
-                              ? "text-red-600 font-medium"
-                              : selectedTask.status === "In Progress"
-                                ? "text-blue-600 font-medium"
-                                : "text-green-600 font-medium"
-                          }
-                        >
-                          {selectedTask.status}
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground">Created on: {selectedTask.date}</p>
-                    </div>
+                  <h2 className="text-2xl font-bold mb-4">{selectedTask.title}</h2>
 
-                    <div className="space-y-4 text-xs sm:text-sm">
-                      <div>
-                        <p className="font-semibold mb-1">Task Title:</p>
-                        <p className="text-muted-foreground">{selectedTask.title}</p>
-                      </div>
-                      <div>
-                        <p className="font-semibold mb-1">Task Description:</p>
-                        <p className="text-muted-foreground">
-                          {selectedTask.description || "No description provided."}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-semibold mb-1">Deadline for Submission:</p>
-                        <p className="text-muted-foreground">{selectedTask.date}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                      <Button
-                        variant="destructive"
-                        className="gap-2 w-full sm:w-auto"
-                        size="lg"
-                        onClick={() => handleDelete(selectedTask.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                      <Button
-                        className="gap-2 bg-primary hover:bg-primary/90 w-full sm:w-auto"
-                        size="lg"
-                        onClick={() => handleEdit(selectedTask)}
-                      >
-                        <Edit className="h-4 w-4" />
-                        Edit
-                      </Button>
-                    </div>
+                  <div className="space-y-2 mb-4 text-sm">
+                    <p>Priority: <b>{selectedTask.priority}</b></p>
+                    <p>Status: <b>{selectedTask.status}</b></p>
+                    <p>Created on: {selectedTask.date}</p>
                   </div>
+
+                  <p className="text-muted-foreground mb-6">
+                    {selectedTask.description || "No description"}
+                  </p>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDelete(selectedTask.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+
                 </div>
               </div>
-            )}
-
-            {/* Empty state for mobile when no task selected */}
-            {!selectedTask && (
-              <div className="hidden lg:flex items-center justify-center p-8 bg-muted/20">
-                <p className="text-muted-foreground">Select a task to view details</p>
+            ) : (
+              <div className="hidden lg:flex items-center justify-center">
+                <p className="text-muted-foreground">Select a task</p>
               </div>
             )}
+
           </div>
         </main>
       </div>
-
-      {selectedTask && <EditTaskDialog open={showEditTask} onOpenChange={setShowEditTask} task={selectedTask} />}
     </div>
   )
 }

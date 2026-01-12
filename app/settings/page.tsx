@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAppStore } from "@/lib/store"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   Dialog,
@@ -20,22 +19,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Camera } from "lucide-react"
+import { supabase } from "@/lib/supabaseClient"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const user = useAppStore((state) => state.user)
-  const updateUserProfile = useAppStore((state) => state.updateUserProfile)
-  const changePassword = useAppStore((state) => state.changePassword)
 
-  const [firstName, setFirstName] = useState(user?.firstName || "")
-  const [lastName, setLastName] = useState(user?.lastName || "")
-  const [email, setEmail] = useState(user?.email || "")
-  const [contactNumber, setContactNumber] = useState(user?.contactNumber || "")
-  const [position, setPosition] = useState(user?.position || "")
-  const [avatar, setAvatar] = useState(user?.avatar || "")
+  const [loading, setLoading] = useState(true)
+
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [avatar, setAvatar] = useState("")
 
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
@@ -43,29 +39,67 @@ export default function SettingsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpdateInfo = () => {
-    updateUserProfile({
-      firstName,
-      lastName,
-      email,
-      contactNumber,
-      position,
-      avatar,
+  // =========================
+  // LOAD USER
+  // =========================
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        router.push("/sign-in")
+        return
+      }
+
+      const user = data.user
+
+      setEmail(user.email || "")
+      const fullName = user.user_metadata?.full_name || ""
+      const parts = fullName.split(" ")
+      setFirstName(parts[0] || "")
+      setLastName(parts.slice(1).join(" ") || "")
+      setAvatar(user.user_metadata?.avatar_url || "")
+
+      setLoading(false)
+    }
+
+    loadUser()
+  }, [])
+
+  // =========================
+  // UPDATE PROFILE
+  // =========================
+  const handleUpdateInfo = async () => {
+    const full_name = `${firstName} ${lastName}`.trim()
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name,
+        avatar_url: avatar,
+      },
     })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
     setSuccessMessage("Profile updated successfully!")
     setTimeout(() => setSuccessMessage(""), 3000)
   }
 
-  const handleChangePassword = () => {
+  // =========================
+  // CHANGE PASSWORD
+  // =========================
+  const handleChangePassword = async () => {
     setPasswordError("")
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       setPasswordError("All fields are required")
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match")
+      setPasswordError("Passwords do not match")
       return
     }
 
@@ -74,20 +108,25 @@ export default function SettingsPage() {
       return
     }
 
-    const success = changePassword(currentPassword, newPassword)
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
 
-    if (success) {
-      setShowPasswordDialog(false)
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
-      setSuccessMessage("Password changed successfully!")
-      setTimeout(() => setSuccessMessage(""), 3000)
-    } else {
-      setPasswordError("Current password is incorrect")
+    if (error) {
+      setPasswordError(error.message)
+      return
     }
+
+    setShowPasswordDialog(false)
+    setNewPassword("")
+    setConfirmPassword("")
+    setSuccessMessage("Password changed successfully!")
+    setTimeout(() => setSuccessMessage(""), 3000)
   }
 
+  // =========================
+  // AVATAR UPLOAD (LOCAL ONLY)
+  // =========================
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -98,6 +137,8 @@ export default function SettingsPage() {
       reader.readAsDataURL(file)
     }
   }
+
+  if (loading) return <div className="p-10 text-center">Loading...</div>
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -117,29 +158,28 @@ export default function SettingsPage() {
             <div className="rounded-2xl border bg-card p-4 sm:p-6 lg:p-8 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                 <h2 className="text-xl sm:text-2xl font-bold">Account Information</h2>
-                <button
-                  onClick={() => router.back()}
-                  className="text-sm underline hover:no-underline self-start sm:self-auto"
-                >
+                <button onClick={() => router.back()} className="text-sm underline">
                   Go Back
                 </button>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
                 <div className="relative group">
-                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
-                    <AvatarImage src={avatar || "/placeholder.svg?height=96&width=96"} alt={firstName} />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                      {firstName.charAt(0).toUpperCase()}
-                      {lastName.charAt(0).toUpperCase()}
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={avatar || "/placeholder.svg"} />
+                    <AvatarFallback className="text-2xl">
+                      {firstName.charAt(0)}
+                      {lastName.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
+
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100"
                   >
                     <Camera className="w-6 h-6 text-white" />
                   </button>
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -148,76 +188,37 @@ export default function SettingsPage() {
                     className="hidden"
                   />
                 </div>
-                <div className="text-center sm:text-left">
-                  <h3 className="text-lg sm:text-xl font-semibold">
+
+                <div>
+                  <h3 className="text-xl font-semibold">
                     {firstName} {lastName}
                   </h3>
-                  <p className="text-sm sm:text-base text-muted-foreground">{email}</p>
+                  <p className="text-muted-foreground">{email}</p>
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="bg-white"
-                    />
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <Label>First Name</Label>
+                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="bg-white"
-                    />
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-white"
-                  />
+                <div>
+                  <Label>Email</Label>
+                  <Input value={email} disabled />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Contact Number</Label>
-                  <Input
-                    id="contact"
-                    type="tel"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    className="bg-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="position">Position</Label>
-                  <Input
-                    id="position"
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    className="bg-white"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                  <Button onClick={handleUpdateInfo} className="bg-[#FF5A3D] hover:bg-[#FF5A3D]/90 w-full sm:w-auto">
+                <div className="flex gap-3 pt-4">
+                  <Button onClick={handleUpdateInfo} className="bg-[#FF5A3D]">
                     Update Info
                   </Button>
-                  <Button
-                    onClick={() => setShowPasswordDialog(true)}
-                    className="bg-[#FF5A3D] hover:bg-[#FF5A3D]/90 w-full sm:w-auto"
-                  >
+                  <Button onClick={() => setShowPasswordDialog(true)} className="bg-[#FF5A3D]">
                     Change Password
                   </Button>
                 </div>
@@ -227,60 +228,31 @@ export default function SettingsPage() {
         </main>
       </div>
 
+      {/* PASSWORD DIALOG */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Enter your current password and choose a new one</DialogDescription>
+            <DialogDescription>Enter a new password</DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-4">
-            {passwordError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{passwordError}</div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
+            {passwordError && <div className="text-red-600 text-sm">{passwordError}</div>}
+
+            <div>
+              <Label>New Password</Label>
+              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+
+            <div>
+              <Label>Confirm Password</Label>
+              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
             </div>
           </div>
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowPasswordDialog(false)
-                setPasswordError("")
-                setCurrentPassword("")
-                setNewPassword("")
-                setConfirmPassword("")
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleChangePassword} className="bg-[#FF5A3D] hover:bg-[#FF5A3D]/90">
-              Change Password
-            </Button>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>Cancel</Button>
+            <Button onClick={handleChangePassword} className="bg-[#FF5A3D]">Change Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
