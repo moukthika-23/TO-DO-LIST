@@ -24,6 +24,9 @@ export default function SignUpPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -92,10 +95,39 @@ export default function SignUpPage() {
 
               <Input placeholder="First Name" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} />
               <Input placeholder="Last Name" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} />
-              <Input placeholder="Username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
               <Input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-              <Input type="password" placeholder="Password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
-              <Input type="password" placeholder="Confirm Password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} />
+              <div className="relative">
+  <Input
+    type={showPassword ? "text" : "password"}
+    placeholder="Password"
+    value={formData.password}
+    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+  />
+  <button
+    type="button"
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500"
+    onClick={() => setShowPassword(!showPassword)}
+  >
+    {showPassword ? "Hide" : "Show"}
+  </button>
+</div>
+
+              <div className="relative">
+  <Input
+    type={showConfirmPassword ? "text" : "password"}
+    placeholder="Confirm Password"
+    value={formData.confirmPassword}
+    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+  />
+  <button
+    type="button"
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500"
+    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+  >
+    {showConfirmPassword ? "Hide" : "Show"}
+  </button>
+</div>
+
 
               <div className="flex items-center space-x-2">
                 <Checkbox checked={agreedToTerms} onCheckedChange={(v) => setAgreedToTerms(Boolean(v))} />

@@ -19,6 +19,8 @@ export default function SignInPage() {
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
 
   // ===============================
   // EMAIL + PASSWORD LOGIN
@@ -145,6 +147,13 @@ export default function SignInPage() {
                   className="pl-12 h-14 bg-white border-2 border-border rounded-xl"
                   required
                 />
+                <button
+    type="button"
+    className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 hover:text-black"
+    onClick={() => setShowPassword(!showPassword)}
+  >
+    {showPassword ? "Hide" : "Show"}
+  </button>
               </div>
 
               <div className="flex justify-between items-center text-sm">
