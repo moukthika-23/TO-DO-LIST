@@ -40,6 +40,22 @@ export function AddTaskDialog({ open, onOpenChange ,onSuccess}: AddTaskDialogPro
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return alert("Not logged in")
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_premium")
+      .eq("id", auth.user.id)
+      .single()
+
+    const { data: existingTasks } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", auth.user.id)
+
+    if (!profile?.is_premium && (existingTasks ?? []).length >= 5) {
+      alert("Upgrade to premium to add more than 5 tasks")
+      return
+    }
+
     await supabase.from("tasks").insert({
       user_id: auth.user.id,
       title: form.title,

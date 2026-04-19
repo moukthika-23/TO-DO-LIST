@@ -12,6 +12,8 @@ import { CompletedTaskCard } from "@/components/completed-task-card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AddTaskDialog, EditTaskDialog } from "@/components/dialog-components"
+import Script from "next/script";
+
 
 export interface Task {
   id: string
@@ -25,10 +27,28 @@ export interface Task {
   user_id: string
 }
 
+async function ensureProfile(user: any) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single()
+
+  if (!data) {
+    await supabase.from("profiles").insert([
+      {
+        id: user.id,
+        is_premium: false,
+      },
+    ]);
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [search, setSearch] = useState("")
   const [showAddTask, setShowAddTask] = useState(false)
@@ -44,6 +64,13 @@ export default function DashboardPage() {
       }
 
       setUser(data.user)
+      await ensureProfile(data.user)
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single()
+      setProfile(profileData)
       await loadTasks()
       setLoading(false)
     }
@@ -83,6 +110,36 @@ export default function DashboardPage() {
     setEditingTask(task)
     setShowEditTask(true)
   }
+  const handlePayment = async () => {
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+    });
+  
+    const data = await res.json();
+  
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+      amount: data.amount,
+      currency: "INR",
+      name: "ToDo Premium",
+      description: "Unlock premium features",
+      order_id: data.id,
+  
+      handler: async function () {
+        alert("Payment Successful!");
+  
+        await supabase
+          .from("profiles")
+          .update({ is_premium: true })
+          .eq("id", user.id);
+          setProfile({ is_premium: true }); 
+        alert("You are now Premium 🚀");
+      },
+    };
+  
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this task?")) return
@@ -112,6 +169,8 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
   const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ""
 
   return (
+    <>
+    <Script src="https://checkout.razorpay.com/v1/checkout.js" />
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
@@ -124,15 +183,41 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
 />
 
 
+
         <main className="flex-1 p-6 space-y-6">
           {/* HEADER */}
           <div className="flex justify-between items-center">
-            <h2 className="text-3xl font-bold">Welcome, {fullName} 👋</h2>
-            <Avatar>
-              <AvatarImage src={avatarUrl} />
-              <AvatarFallback>{fullName[0]}</AvatarFallback>
-            </Avatar>
-          </div>
+          <h2 className="text-3xl font-bold">
+  Welcome, {fullName} 👋
+</h2>
+
+{profile?.is_premium && (
+  <span className="text-yellow-500 font-semibold">
+    👑 Premium User
+  </span>
+)}
+
+  <div className="flex items-center gap-3">
+    {/* 🔥 ADD THIS BUTTON */}
+    <Button
+  onClick={handlePayment}
+  disabled={profile?.is_premium}
+  className="relative overflow-hidden bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black font-semibold px-4 py-2 rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
+>
+  <span className="absolute inset-0 bg-white opacity-20 blur-xl animate-pulse"></span>
+
+  <span className="relative flex items-center gap-2">
+    {profile?.is_premium ? "👑 Premium Activated" : "⚡ Upgrade ₹1"}
+  </span>
+</Button>
+
+    <Avatar>
+      <AvatarImage src={avatarUrl} />
+      <AvatarFallback>{fullName[0]}</AvatarFallback>
+    </Avatar>
+  </div>
+</div>
+
 
           <div className="grid lg:grid-cols-[1fr,400px] gap-6">
             {/* LEFT */}
@@ -215,5 +300,6 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
         />
       )}
     </div>
+    </>
   )
 }
