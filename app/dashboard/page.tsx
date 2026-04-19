@@ -12,8 +12,44 @@ import { CompletedTaskCard } from "@/components/completed-task-card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AddTaskDialog, EditTaskDialog } from "@/components/dialog-components"
-import Script from "next/script";
 
+const RAZORPAY_SCRIPT = "https://checkout.razorpay.com/v1/checkout.js"
+
+function ensureRazorpay(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const w = window as unknown as { Razorpay?: new (options: object) => { open: () => void } }
+    if (typeof w.Razorpay === "function") {
+      resolve()
+      return
+    }
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${RAZORPAY_SCRIPT}"]`)
+    if (existing) {
+      const deadline = Date.now() + 15_000
+      const tick = () => {
+        if (typeof w.Razorpay === "function") {
+          resolve()
+          return
+        }
+        if (Date.now() > deadline) {
+          reject(new Error("Razorpay script did not become ready in time"))
+          return
+        }
+        requestAnimationFrame(tick)
+      }
+      tick()
+      return
+    }
+    const script = document.createElement("script")
+    script.src = RAZORPAY_SCRIPT
+    script.async = true
+    script.onload = () => {
+      if (typeof w.Razorpay === "function") resolve()
+      else reject(new Error("Razorpay global missing after load"))
+    }
+    script.onerror = () => reject(new Error("Failed to load Razorpay script"))
+    document.body.appendChild(script)
+  })
+}
 
 export interface Task {
   id: string
@@ -111,12 +147,22 @@ export default function DashboardPage() {
     setShowEditTask(true)
   }
   const handlePayment = async () => {
+    try {
+      await ensureRazorpay()
+    } catch {
+      alert("Could not load payment. Check your connection and try again.")
+      return
+    }
+
     const res = await fetch("/api/create-order", {
       method: "POST",
-    });
-  
-    const data = await res.json();
-  
+    })
+
+    const data = await res.json()
+
+    const Razorpay = (window as unknown as { Razorpay: new (options: object) => { open: () => void } })
+      .Razorpay
+
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
       amount: data.amount,
@@ -124,22 +170,19 @@ export default function DashboardPage() {
       name: "ToDo Premium",
       description: "Unlock premium features",
       order_id: data.id,
-  
+
       handler: async function () {
-        alert("Payment Successful!");
-  
-        await supabase
-          .from("profiles")
-          .update({ is_premium: true })
-          .eq("id", user.id);
-          setProfile({ is_premium: true }); 
-        alert("You are now Premium 🚀");
+        alert("Payment Successful!")
+
+        await supabase.from("profiles").update({ is_premium: true }).eq("id", user.id)
+        setProfile({ is_premium: true })
+        alert("You are now Premium 🚀")
       },
-    };
-  
-    const rzp = new (window as any).Razorpay(options);
-    rzp.open();
-  };
+    }
+
+    const rzp = new Razorpay(options)
+    rzp.open()
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this task?")) return
@@ -170,7 +213,6 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
 
   return (
     <>
-    <Script src="https://checkout.razorpay.com/v1/checkout.js" />
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
