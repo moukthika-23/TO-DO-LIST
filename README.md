@@ -1,30 +1,109 @@
-# To-Do List App
+# 📝 To-Do List App
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+A full-stack, cloud-integrated To-Do List application built with modern web technologies. This project includes authentication, premium features, payment integration, caching, and scalable deployment.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/shyamal-s-projects-de890598/v0-to-do-list-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/vSsglhXxoRz)
+---
 
-## Overview
+## 🚀 Live Demo
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+🔗 https://v0-to-do-list-app-eta-six.vercel.app/
 
-## Deployment
+---
 
-Your project is live at:
+## ✨ Features
 
-**[https://vercel.com/shyamal-s-projects-de890598/v0-to-do-list-app](https://vercel.com/shyamal-s-projects-de890598/v0-to-do-list-app)**
+* 🔐 Authentication (Email & Google via Supabase)
+* 📝 Task Management (Create, Update, Delete)
+* 📊 Dashboard with categorized tasks
+* 💳 Premium Upgrade via Razorpay
+* ⏰ Reminder & Alarm (Premium Feature)
+* ⚡ Redis Caching for performance optimization
+* 🐳 Docker Containerization
+* ☸️ Kubernetes Deployment & Scaling
 
-## Build your app
+---
 
-Continue building your app on:
+## 🏗️ System Architecture
 
-**[https://v0.app/chat/vSsglhXxoRz](https://v0.app/chat/vSsglhXxoRz)**
+```
+Frontend (Next.js)
+        ↓
+Backend API (Next.js)
+        ↓
+Supabase Auth + PostgreSQL Database
+        ↓
+Razorpay (Payment Gateway)
+        ↓
+Redis (Caching Layer)
+        ↓
+Docker (Containerization)
+        ↓
+Kubernetes (Scaling & Orchestration)
+        ↓
+Deployment (Vercel / Local Cluster)
+```
 
-## How It Works
+---
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## 🛠️ Tech Stack
+
+* **Frontend:** Next.js, Tailwind CSS
+* **Backend:** Next.js API Routes
+* **Database:** Supabase (PostgreSQL)
+* **Authentication:** Supabase Auth
+* **Payments:** Razorpay
+* **Caching:** Redis
+* **Containerization:** Docker
+* **Orchestration:** Kubernetes
+* **Deployment:** Vercel
+
+---
+
+## ⚙️ Installation
+
+```bash
+npm install
+npm run dev
+```
+
+---
+
+## 🐳 Docker
+
+```bash
+docker build -t todo-app .
+docker run -p 3000:3000 todo-app
+```
+
+---
+
+## ☸️ Kubernetes
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl get pods
+```
+
+---
+
+## 🔒 Premium Feature
+
+Reminder & Alarm system is available only for premium users.
+Users can upgrade using Razorpay integration.
+
+---
+
+## 📌 Key Learnings
+
+* Full Stack Development
+* Cloud & Deployment
+* Docker & Kubernetes
+* Payment Gateway Integration
+* Redis Caching
+
+---
+
+## 👩‍💻 Author
+
+**Moukthika**
