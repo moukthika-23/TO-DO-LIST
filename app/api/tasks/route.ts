@@ -33,6 +33,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to fetch tasks" }, { status: 500 });
+    console.error("Backend API Error in /api/tasks:", error);
+    return NextResponse.json({ error: error.message || "Failed to fetch tasks", details: error }, { status: 500 });
   }
 }

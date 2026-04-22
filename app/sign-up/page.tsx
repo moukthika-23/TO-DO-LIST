@@ -2,7 +2,7 @@
 
 import { User, Mail, Lock } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -71,82 +71,118 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden grid md:grid-cols-2">
-
-        {/* Left Illustration */}
-        <div className="hidden md:flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-12">
-          <Image src="/images/signup.png" alt="Sign up" width={400} height={600} className="object-contain" />
-        </div>
-
-        {/* Right Form */}
-        <div className="flex flex-col justify-center p-12 bg-white">
-          <div className="w-full max-w-md mx-auto">
-            <h1 className="text-4xl font-bold mb-8">Sign Up</h1>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            <form className="space-y-5" onSubmit={handleSubmit}>
-
-              <Input placeholder="First Name" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} />
-              <Input placeholder="Last Name" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} />
-              <Input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-              <div className="relative">
-  <Input
-    type={showPassword ? "text" : "password"}
-    placeholder="Password"
-    value={formData.password}
-    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-  />
-  <button
-    type="button"
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500"
-    onClick={() => setShowPassword(!showPassword)}
-  >
-    {showPassword ? "Hide" : "Show"}
-  </button>
-</div>
-
-              <div className="relative">
-  <Input
-    type={showConfirmPassword ? "text" : "password"}
-    placeholder="Confirm Password"
-    value={formData.confirmPassword}
-    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-  />
-  <button
-    type="button"
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500"
-    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-  >
-    {showConfirmPassword ? "Hide" : "Show"}
-  </button>
-</div>
-
-
-              <div className="flex items-center space-x-2">
-                <Checkbox checked={agreedToTerms} onCheckedChange={(v) => setAgreedToTerms(Boolean(v))} />
-                <span className="text-sm">I agree to all terms</span>
-              </div>
-
-              <Button disabled={loading} type="submit" className="w-full">
-                {loading ? "Creating..." : "Register"}
-              </Button>
-
-              <p className="text-sm text-center">
-                Already have an account?{" "}
-                <Link href="/sign-in" className="text-blue-600 hover:underline">
-                  Sign In
-                </Link>
-              </p>
-
-            </form>
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="w-full max-w-md bg-card rounded-2xl shadow-xl border border-border p-8">
+        <div className="text-center mb-8">
+          <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+            <User className="h-8 w-8 text-primary" />
           </div>
+          <h1 className="text-3xl font-bold text-foreground">Create Account</h1>
+          <p className="text-muted-foreground mt-2">Join us to manage your tasks effectively</p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-sm text-destructive font-medium">
+            {error}
+          </div>
+        )}
+
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground">First Name</label>
+              <Input 
+                placeholder="John" 
+                value={formData.firstName} 
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} 
+                className="h-11 bg-background"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground">Last Name</label>
+              <Input 
+                placeholder="Doe" 
+                value={formData.lastName} 
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} 
+                className="h-11 bg-background"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-foreground">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                type="email" 
+                placeholder="john@example.com" 
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                className="pl-9 h-11 bg-background"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-foreground">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Create a password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="pl-9 pr-14 h-11 bg-background"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "HIDE" : "SHOW"}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-foreground">Confirm Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="pl-9 pr-14 h-11 bg-background"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? "HIDE" : "SHOW"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={(v) => setAgreedToTerms(Boolean(v))} />
+            <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+              I agree to the Terms & Conditions
+            </label>
+          </div>
+
+          <Button disabled={loading} type="submit" className="w-full h-12 font-bold mt-2">
+            {loading ? "Creating Account..." : "Create Account"}
+          </Button>
+
+          <p className="text-sm text-center text-muted-foreground pt-4">
+            Already have an account?{" "}
+            <Link href="/sign-in" className="text-primary font-bold hover:underline">
+              Sign In
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   )

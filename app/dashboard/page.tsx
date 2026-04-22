@@ -121,7 +121,12 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/tasks?userId=${auth.user.id}`)
       const data = await res.json()
-      setTasks(data || [])
+      if (Array.isArray(data)) {
+        setTasks(data)
+      } else {
+        console.error("API returned error instead of tasks:", data)
+        setTasks([])
+      }
     } catch (error) {
       console.error("Load tasks error:", error)
     }
@@ -225,56 +230,82 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
 
         <main className="flex-1 p-6 space-y-6">
           {/* HEADER */}
-          <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">
-  Welcome, {fullName} 👋
-</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">
+                Welcome back, {fullName} 👋
+              </h2>
+              <p className="text-muted-foreground mt-1">Here is your task overview for today.</p>
+              {profile?.is_premium && (
+                <span className="inline-block mt-2 text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-md">
+                  Premium Member
+                </span>
+              )}
+            </div>
 
-{profile?.is_premium && (
-  <span className="text-yellow-500 font-semibold">
-    👑 Premium User
-  </span>
-)}
+            <div className="flex items-center gap-4">
+              {!profile?.is_premium && (
+                <Button 
+                  onClick={handlePayment} 
+                  className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-bold shadow-md border border-yellow-300"
+                >
+                  ⭐ Upgrade to Premium (Rs. 1)
+                </Button>
+              )}
+              <Button onClick={() => setShowAddTask(true)} className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" /> New Task
+              </Button>
+              <Avatar className="border-2 border-primary/20">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback className="bg-primary text-primary-foreground">{fullName[0]}</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
 
-  <div className="flex items-center gap-3">
-    {/* 🔥 ADD THIS BUTTON */}
-    <Button
-  onClick={handlePayment}
-  disabled={profile?.is_premium}
-  className="relative overflow-hidden bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black font-semibold px-4 py-2 rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
->
-  <span className="absolute inset-0 bg-white opacity-20 blur-xl animate-pulse"></span>
+          {/* Top Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white dark:bg-card border rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Completed Tasks</h4>
+              <div className="text-3xl font-bold text-green-600">{Math.round((completed.length / total) * 100)}%</div>
+              <p className="text-xs text-muted-foreground mt-1">{completed.length} of {total} tasks</p>
+            </div>
+            
+            <div className="bg-white dark:bg-card border rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">In Progress</h4>
+              <div className="text-3xl font-bold text-blue-600">{Math.round((inProgress.length / total) * 100)}%</div>
+              <p className="text-xs text-muted-foreground mt-1">{inProgress.length} tasks</p>
+            </div>
 
-  <span className="relative flex items-center gap-2">
-    {profile?.is_premium ? "👑 Premium Activated" : "⚡ Upgrade ₹1"}
-  </span>
-</Button>
+            <div className="bg-white dark:bg-card border rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Not Started</h4>
+                <div className="text-3xl font-bold text-red-500">{Math.round((notStarted.length / total) * 100)}%</div>
+              </div>
+              <div className="mt-2 text-right">
+                <p className="text-xs text-muted-foreground mt-1 text-left">{notStarted.length} tasks</p>
+              </div>
+            </div>
+          </div>
 
-    <Avatar>
-      <AvatarImage src={avatarUrl} />
-      <AvatarFallback>{fullName[0]}</AvatarFallback>
-    </Avatar>
-  </div>
-</div>
+          {/* Main Content Area */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* LEFT: TO DO */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <span className="w-2 h-6 bg-blue-500 rounded-full inline-block"></span>
+                  Active Tasks
+                </h3>
+                <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded-full">{pending.length}</span>
+              </div>
 
-
-          <div className="grid lg:grid-cols-[1fr,400px] gap-6">
-            {/* LEFT */}
-            <div className="space-y-6">
-              <div className="border rounded-xl p-4">
-                <div className="flex justify-between mb-4">
-                  <h3 className="text-xl font-semibold">To Do</h3>
-                  <Button onClick={() => setShowAddTask(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Task
-                  </Button>
+              {pending.length === 0 && (
+                <div className="bg-muted/30 border border-dashed rounded-xl p-8 text-center">
+                  <p className="text-muted-foreground">All caught up! No active tasks.</p>
                 </div>
+              )}
 
-                {pending.length === 0 && (
-                  <p className="text-muted-foreground text-center py-6">
-                    No tasks yet. Click "Add Task".
-                  </p>
-                )}
-
+              <div className="space-y-3">
                 {pending.map((task) => (
                   <TaskCard
                     key={task.id}
@@ -290,29 +321,35 @@ const notStarted = filteredTasks.filter((t) => t.status === "Not Started")
                   />
                 ))}
               </div>
-
-              {completed.length > 0 && (
-                <div className="border rounded-xl p-4">
-                  <h3 className="text-xl font-semibold mb-4">Completed</h3>
-                  {completed.map((task) => (
-                    <CompletedTaskCard
-                      key={task.id}
-                      title={task.title}
-                      description={task.description}
-                      image={task.image || "/placeholder.svg"}
-                      completedDate={task.date}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* RIGHT */}
-            <div className="border rounded-xl p-6 space-y-6 text-center">
-              <h3 className="text-xl font-semibold">Task Stats</h3>
-              <div>Completed: {Math.round((completed.length / total) * 100)}%</div>
-              <div>In Progress: {Math.round((inProgress.length / total) * 100)}%</div>
-              <div>Not Started: {Math.round((notStarted.length / total) * 100)}%</div>
+            {/* RIGHT: COMPLETED */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <span className="w-2 h-6 bg-green-500 rounded-full inline-block"></span>
+                  Completed
+                </h3>
+                <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded-full">{completed.length}</span>
+              </div>
+
+              {completed.length === 0 && (
+                <div className="bg-muted/30 border border-dashed rounded-xl p-8 text-center">
+                  <p className="text-muted-foreground">No completed tasks yet.</p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {completed.map((task) => (
+                  <CompletedTaskCard
+                    key={task.id}
+                    title={task.title}
+                    description={task.description}
+                    image={task.image || "/placeholder.svg"}
+                    completedDate={task.date}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </main>
